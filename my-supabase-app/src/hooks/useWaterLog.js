@@ -48,6 +48,24 @@ export function useWaterLog(dailyGoal) {
     });
   }, [dailyGoal]);
 
+  const decrementGlass = useCallback(() => {
+    setLog((prev) => {
+      if (prev.glasses <= 0) return prev;
+      const updated = {
+        ...prev,
+        glasses: prev.glasses - 1,
+      };
+      saveTodayLog(updated);
+      return updated;
+    });
+  }, []);
+
+  const resetGlasses = useCallback(() => {
+    const updated = { glasses: 0, lastDrank: null };
+    saveTodayLog(updated);
+    setLog(updated);
+  }, []);
+
   const setGlasses = useCallback((count) => {
     setLog((prev) => {
       const updated = {
@@ -66,6 +84,8 @@ export function useWaterLog(dailyGoal) {
     goalReached: log.glasses >= dailyGoal,
     progress: dailyGoal > 0 ? Math.min(1, log.glasses / dailyGoal) : 0,
     incrementGlass,
+    decrementGlass,
+    resetGlasses,
     setGlasses,
   };
 }

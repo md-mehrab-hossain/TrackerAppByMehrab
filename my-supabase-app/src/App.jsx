@@ -131,6 +131,8 @@ export default function App() {
               progress={waterLog.progress}
               goalReached={waterLog.goalReached}
               onDrink={handleDrink}
+              onRemove={waterLog.decrementGlass}
+              onReset={waterLog.resetGlasses}
               onGoalChange={alarm.setDailyGoal}
             />
             <StatsPanel

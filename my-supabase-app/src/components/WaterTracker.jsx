@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 function GlassIcon({ filled }) {
   return (
@@ -30,11 +30,15 @@ export default function WaterTracker({
   progress,
   goalReached,
   onDrink,
+  onRemove,
+  onReset,
   onGoalChange,
 }) {
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState(String(dailyGoal));
   const [rippleActive, setRippleActive] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const prevGoalReached = useRef(false);
   const rippleTimeout = useRef(null);
 
   const handleDrink = () => {
@@ -43,6 +47,26 @@ export default function WaterTracker({
     if (rippleTimeout.current) clearTimeout(rippleTimeout.current);
     rippleTimeout.current = setTimeout(() => setRippleActive(false), 700);
   };
+
+  const handleRemove = () => {
+    if (onRemove) onRemove();
+  };
+
+  const handleReset = () => {
+    if (onReset) onReset();
+    setShowCelebration(false);
+  };
+
+  // Auto-show celebration when goal is reached
+  useEffect(() => {
+    if (goalReached && !prevGoalReached.current) {
+      setShowCelebration(true);
+    }
+    if (!goalReached) {
+      setShowCelebration(false);
+    }
+    prevGoalReached.current = goalReached;
+  }, [goalReached]);
 
   const handleGoalSubmit = (e) => {
     e.preventDefault();
@@ -90,14 +114,28 @@ export default function WaterTracker({
       </div>
 
       {/* Goal complete celebration */}
-      {goalReached && (
+      {showCelebration && (
         <div className="water-tracker__celebration">
-          🎉 Daily goal reached!
+          <span className="water-tracker__confetti">🎉</span>
+          Daily goal reached! Great job!
+          <span className="water-tracker__confetti">🎉</span>
         </div>
       )}
 
-      {/* Actions */}
-      <div className="water-tracker__actions">
+      {/* +/- Stepper Controls */}
+      <div className="water-tracker__stepper">
+        <button
+          id="btn-remove-glass"
+          className="btn btn--stepper btn--stepper-minus"
+          onClick={handleRemove}
+          disabled={glasses <= 0}
+          aria-label="Remove one glass"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 13H5v-2h14v2z" />
+          </svg>
+        </button>
+
         <button
           id="btn-drink"
           className={`btn btn--primary btn--lg water-tracker__drink-btn ${
@@ -107,6 +145,29 @@ export default function WaterTracker({
         >
           <span className="water-tracker__drink-icon">💧</span>
           I drank!
+        </button>
+
+        <button
+          id="btn-add-glass"
+          className="btn btn--stepper btn--stepper-plus"
+          onClick={handleDrink}
+          aria-label="Add one glass"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Reset + Goal row */}
+      <div className="water-tracker__bottom-row">
+        <button
+          id="btn-reset-tracker"
+          className="btn btn--danger btn--sm"
+          onClick={handleReset}
+          disabled={glasses === 0}
+        >
+          🔄 Reset
         </button>
 
         {editingGoal ? (
