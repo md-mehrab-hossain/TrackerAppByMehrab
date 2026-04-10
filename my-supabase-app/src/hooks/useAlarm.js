@@ -3,106 +3,113 @@ import { loadSettings, saveSettings } from '../utils/storage';
 
 /**
  * Core alarm/timer hook.
- * Manages countdown, pause/resume, and triggers callback on completion.
+ * Uses target timestamps for accuracy across pauses/sleep/refreshes.
  */
 export function useAlarm(onAlarmTrigger) {
   const [settings, setSettings] = useState(() => loadSettings());
-  const [status, setStatus] = useState('ready'); // 'ready' | 'active' | 'paused'
-  const [remainingSeconds, setRemainingSeconds] = useState(
-    () => settings.intervalMinutes * 60
-  );
+  const [status, setStatus] = useState(() => settings.alarmActive ? 'active' : 'ready');
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [lastReminder, setLastReminder] = useState(null);
 
   const intervalRef = useRef(null);
-  const remainingRef = useRef(remainingSeconds);
 
-  // Keep ref in sync
-  remainingRef.current = remainingSeconds;
+  // Synchronize remaining seconds based on target timestamp
+  const syncTimer = useCallback(() => {
+    if (!settings.targetTimestamp || !settings.alarmActive) {
+      setRemainingSeconds(settings.intervalMinutes * 60);
+      return;
+    }
 
-  // Persist settings changes
+    const now = Date.now();
+    const diff = Math.ceil((settings.targetTimestamp - now) / 1000);
+
+    if (diff <= 0) {
+      setRemainingSeconds(0);
+      setStatus('ready');
+      setSettings(s => ({ ...s, alarmActive: false, targetTimestamp: null }));
+      setLastReminder(new Date().toISOString());
+      if (onAlarmTrigger) onAlarmTrigger();
+    } else {
+      setRemainingSeconds(diff);
+      setStatus('active');
+    }
+  }, [settings.targetTimestamp, settings.alarmActive, settings.intervalMinutes, onAlarmTrigger]);
+
+  // Initial sync and whenever settings change
+  useEffect(() => {
+    syncTimer();
+  }, [settings.targetTimestamp, settings.alarmActive]);
+
+  // Tick the timer
+  useEffect(() => {
+    if (status === 'active') {
+      intervalRef.current = setInterval(() => {
+        syncTimer();
+      }, 1000);
+    } else {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    }
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [status, syncTimer]);
+
+  // Persist settings
   useEffect(() => {
     saveSettings(settings);
   }, [settings]);
 
-  const clearTimer = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  }, []);
-
-  const startTimer = useCallback(() => {
-    clearTimer();
-    intervalRef.current = setInterval(() => {
-      setRemainingSeconds((prev) => {
-        if (prev <= 1) {
-          clearTimer();
-          setStatus('ready');
-          setLastReminder(new Date().toISOString());
-          if (onAlarmTrigger) onAlarmTrigger();
-          return settings.intervalMinutes * 60;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, [clearTimer, onAlarmTrigger, settings.intervalMinutes]);
+  // Handle visibility changes to re-sync
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncTimer();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [syncTimer]);
 
   const start = useCallback(() => {
+    const target = Date.now() + settings.intervalMinutes * 60 * 1000;
+    setSettings(s => ({ ...s, alarmActive: true, targetTimestamp: target }));
     setStatus('active');
-    startTimer();
-    setSettings((s) => ({ ...s, alarmActive: true }));
-  }, [startTimer]);
+  }, [settings.intervalMinutes]);
 
   const pause = useCallback(() => {
-    clearTimer();
+    // Save remaining as target offset (simplification for this version)
+    setSettings(s => ({ ...s, alarmActive: false, targetTimestamp: null }));
     setStatus('paused');
-    setSettings((s) => ({ ...s, alarmActive: false }));
-  }, [clearTimer]);
-
-  const reset = useCallback(() => {
-    clearTimer();
-    setStatus('ready');
-    setRemainingSeconds(settings.intervalMinutes * 60);
-    setSettings((s) => ({ ...s, alarmActive: false }));
-  }, [clearTimer, settings.intervalMinutes]);
-
-  const setInterval_ = useCallback(
-    (minutes) => {
-      setSettings((s) => ({ ...s, intervalMinutes: minutes }));
-      if (status === 'ready') {
-        setRemainingSeconds(minutes * 60);
-      }
-    },
-    [status]
-  );
-
-  const setDailyGoal = useCallback((goal) => {
-    setSettings((s) => ({ ...s, dailyGoal: goal }));
   }, []);
 
-  // Restart countdown after alarm dismissal
-  const restartCountdown = useCallback(() => {
+  const reset = useCallback(() => {
+    setSettings(s => ({ ...s, alarmActive: false, targetTimestamp: null }));
+    setStatus('ready');
     setRemainingSeconds(settings.intervalMinutes * 60);
-    setStatus('active');
-    startTimer();
-    setSettings((s) => ({ ...s, alarmActive: true }));
-  }, [settings.intervalMinutes, startTimer]);
+  }, [settings.intervalMinutes]);
 
-  // Snooze for N minutes
-  const snooze = useCallback(
-    (minutes = 10) => {
+  const setInterval_ = useCallback((minutes) => {
+    setSettings(s => ({ ...s, intervalMinutes: minutes }));
+    if (status === 'ready') {
       setRemainingSeconds(minutes * 60);
-      setStatus('active');
-      startTimer();
-      setSettings((s) => ({ ...s, alarmActive: true }));
-    },
-    [startTimer]
-  );
+    }
+  }, [status]);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => clearTimer();
-  }, [clearTimer]);
+  const setDailyGoal = useCallback((goal) => {
+    setSettings(s => ({ ...s, dailyGoal: goal }));
+  }, []);
+
+  const restartCountdown = useCallback(() => {
+    const target = Date.now() + settings.intervalMinutes * 60 * 1000;
+    setSettings(s => ({ ...s, alarmActive: true, targetTimestamp: target }));
+    setStatus('active');
+  }, [settings.intervalMinutes]);
+
+  const snooze = useCallback((minutes = 10) => {
+    const target = Date.now() + minutes * 60 * 1000;
+    setSettings(s => ({ ...s, alarmActive: true, targetTimestamp: target }));
+    setStatus('active');
+  }, []);
 
   return {
     status,

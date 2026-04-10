@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAlarm } from './hooks/useAlarm';
 import { useNotification } from './hooks/useNotification';
 import { useAudio } from './hooks/useAudio';
 import { useWaterLog } from './hooks/useWaterLog';
+import { formatCountdown } from './utils/time';
 
 import AlarmControl from './components/AlarmControl';
 import IntervalSelector from './components/IntervalSelector';
@@ -24,21 +25,24 @@ export default function App() {
     setShowAlert(true);
     playChime();
 
-    // Send browser notification if tab is hidden
-    if (document.hidden) {
-      sendNotification('💧 Time to Drink Water!', {
-        body: 'Stay hydrated! Your body needs water right now.',
-      });
-    } else {
-      // Still send notification even if tab is visible
-      sendNotification('💧 Time to Drink Water!', {
-        body: 'Your water reminder just went off!',
-      });
-    }
+    // Send browser notification
+    sendNotification('💧 Time to Drink Water!', {
+      body: 'Stay hydrated! Your body needs water right now.',
+      requireInteraction: true, // Keep notification visible until user interacts
+    });
   }, [playChime, sendNotification]);
 
   const alarm = useAlarm(handleAlarmTrigger);
   const waterLog = useWaterLog(alarm.dailyGoal);
+
+  useEffect(() => {
+    if (alarm.status === 'active') {
+      const timeStr = formatCountdown(alarm.remainingSeconds);
+      document.title = `(${timeStr}) AquaPulse`;
+    } else {
+      document.title = 'AquaPulse - Stay Hydrated';
+    }
+  }, [alarm.status, alarm.remainingSeconds]);
 
   // Alert modal handlers
   const handleAlertDrink = () => {
@@ -142,7 +146,9 @@ export default function App() {
 
       {/* Footer */}
       <footer className="app__footer">
-        <p>AquaPulse v1.0 — Made with 💧</p>
+        <div className="app__pwa-status">
+          <p>AquaPulse v1.1 — PWA Enhanced 💧</p>
+        </div>
       </footer>
 
       {/* Alert Modal */}

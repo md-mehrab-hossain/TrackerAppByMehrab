@@ -23,6 +23,7 @@ const DEFAULT_SETTINGS = {
   intervalMinutes: 60,
   dailyGoal: 8,
   alarmActive: false,
+  targetTimestamp: null,
 };
 
 export function loadSettings() {
