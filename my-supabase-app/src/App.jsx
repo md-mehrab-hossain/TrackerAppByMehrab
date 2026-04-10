@@ -11,6 +11,8 @@ import WaterTracker from './components/WaterTracker';
 import AlertModal from './components/AlertModal';
 import StatsPanel from './components/StatsPanel';
 import PermissionBanner from './components/PermissionBanner';
+import WaterCalendar from './components/WaterCalendar';
+import ResetTimeSetting from './components/ResetTimeSetting';
 
 import './App.css';
 
@@ -28,12 +30,12 @@ export default function App() {
     // Send browser notification
     sendNotification('💧 Time to Drink Water!', {
       body: 'Stay hydrated! Your body needs water right now.',
-      requireInteraction: true, // Keep notification visible until user interacts
+      requireInteraction: true,
     });
   }, [playChime, sendNotification]);
 
   const alarm = useAlarm(handleAlarmTrigger);
-  const waterLog = useWaterLog(alarm.dailyGoal);
+  const waterLog = useWaterLog(alarm.dailyGoal, alarm.resetHour);
 
   useEffect(() => {
     if (alarm.status === 'active') {
@@ -144,12 +146,24 @@ export default function App() {
             />
           </div>
         </div>
+
+        {/* Full-width section: Calendar + Reset Time */}
+        <div className="app__full-row">
+          <WaterCalendar
+            dailyGoal={alarm.dailyGoal}
+            resetHour={alarm.resetHour}
+          />
+          <ResetTimeSetting
+            resetHour={alarm.resetHour}
+            onResetHourChange={alarm.setResetHour}
+          />
+        </div>
       </main>
 
       {/* Footer */}
       <footer className="app__footer">
         <div className="app__pwa-status">
-          <p>AquaPulse v1.1 — PWA Enhanced 💧</p>
+          <p>AquaPulse v1.2 — PWA Enhanced 💧</p>
         </div>
       </footer>
 
@@ -164,3 +178,4 @@ export default function App() {
     </div>
   );
 }
+

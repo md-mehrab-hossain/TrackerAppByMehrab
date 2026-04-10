@@ -99,6 +99,10 @@ export function useAlarm(onAlarmTrigger) {
     setSettings(s => ({ ...s, dailyGoal: goal }));
   }, []);
 
+  const setResetHour = useCallback((hour) => {
+    setSettings(s => ({ ...s, resetHour: hour }));
+  }, []);
+
   const restartCountdown = useCallback(() => {
     const target = Date.now() + settings.intervalMinutes * 60 * 1000;
     setSettings(s => ({ ...s, alarmActive: true, targetTimestamp: target }));
@@ -116,13 +120,16 @@ export function useAlarm(onAlarmTrigger) {
     remainingSeconds,
     intervalMinutes: settings.intervalMinutes,
     dailyGoal: settings.dailyGoal,
+    resetHour: settings.resetHour ?? 6,
     lastReminder,
     start,
     pause,
     reset,
     setInterval: setInterval_,
     setDailyGoal,
+    setResetHour,
     restartCountdown,
     snooze,
   };
 }
+

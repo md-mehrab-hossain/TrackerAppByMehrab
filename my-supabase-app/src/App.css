@@ -890,6 +890,314 @@
 }
 
 /* ================================================
+   Full-width Row (Calendar + Reset)
+   ================================================ */
+
+.app__full-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .app__full-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ================================================
+   WaterCalendar Component
+   ================================================ */
+
+.water-calendar {
+  background: var(--color-bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-md);
+  transition: box-shadow var(--transition-base), transform var(--transition-base);
+}
+
+.water-calendar:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* Calendar Navigation */
+.cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.cal-nav__title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  min-width: 160px;
+  text-align: center;
+  color: var(--color-text);
+}
+
+.cal-nav__btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cal-nav__today {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+}
+
+/* Calendar Legend */
+.cal-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
+.cal-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.cal-legend__swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid var(--color-border);
+}
+
+.cal-legend__swatch--empty {
+  background: var(--color-bg-card-solid);
+}
+.cal-legend__swatch--min {
+  background: rgba(14, 165, 233, 0.15);
+}
+.cal-legend__swatch--low {
+  background: rgba(14, 165, 233, 0.3);
+}
+.cal-legend__swatch--mid {
+  background: rgba(14, 165, 233, 0.5);
+}
+.cal-legend__swatch--high {
+  background: rgba(14, 165, 233, 0.7);
+}
+.cal-legend__swatch--full {
+  background: var(--color-success);
+}
+
+/* Calendar Grid */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.cal-header {
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.3rem 0;
+}
+
+.cal-day {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  position: relative;
+  cursor: default;
+  transition: all var(--transition-fast);
+  background: var(--color-bg-card-solid);
+  border: 1px solid transparent;
+  gap: 1px;
+}
+
+.cal-day--empty {
+  background: transparent;
+  border: none;
+}
+
+.cal-day--future {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.cal-day--today {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-glow);
+  font-weight: 700;
+}
+
+.cal-day--min {
+  background: rgba(14, 165, 233, 0.12);
+}
+.cal-day--low {
+  background: rgba(14, 165, 233, 0.25);
+}
+.cal-day--mid {
+  background: rgba(14, 165, 233, 0.4);
+}
+.cal-day--high {
+  background: rgba(14, 165, 233, 0.6);
+  color: #fff;
+}
+.cal-day--full {
+  background: var(--color-success);
+  color: #fff;
+}
+
+.cal-day:not(.cal-day--empty):not(.cal-day--future):hover {
+  transform: scale(1.12);
+  z-index: 2;
+  box-shadow: var(--shadow-md);
+}
+
+.cal-day__number {
+  font-weight: 600;
+  line-height: 1;
+  font-size: 0.75rem;
+}
+
+.cal-day__count {
+  font-size: 0.55rem;
+  font-weight: 700;
+  opacity: 0.85;
+  line-height: 1;
+}
+
+/* Calendar Tooltip */
+.cal-tooltip {
+  margin-top: 0.75rem;
+  padding: 0.6rem 1rem;
+  background: var(--color-bg-card-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  animation: slideDown 200ms ease;
+}
+
+/* ================================================
+   ResetTimeSetting Component
+   ================================================ */
+
+.reset-setting {
+  background: var(--color-bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-md);
+  transition: box-shadow var(--transition-base), transform var(--transition-base);
+}
+
+.reset-setting:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+.reset-setting__info {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.reset-setting__current,
+.reset-setting__countdown-box {
+  flex: 1;
+  padding: 0.75rem;
+  background: var(--color-bg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  text-align: center;
+}
+
+.reset-setting__label {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+
+.reset-setting__value {
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.reset-setting__countdown {
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-warning);
+}
+
+.reset-setting__desc {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
+.reset-setting__desc strong {
+  color: var(--color-text-secondary);
+}
+
+.reset-setting__edit {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  animation: slideDown 200ms ease;
+}
+
+.reset-setting__edit-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.reset-setting__select {
+  width: auto;
+  min-width: 110px;
+  cursor: pointer;
+  appearance: auto;
+}
+
+.reset-setting__edit-btn {
+  width: 100%;
+}
+
+/* ================================================
    Responsive Adjustments
    ================================================ */
 
@@ -918,6 +1226,8 @@
   .alarm-control,
   .interval-selector,
   .water-tracker,
+  .water-calendar,
+  .reset-setting,
   .stats-panel {
     padding: 1.25rem;
   }
@@ -929,4 +1239,18 @@
   .alert-modal__content {
     padding: 2rem 1.5rem 1.5rem;
   }
+
+  .cal-day__number {
+    font-size: 0.65rem;
+  }
+
+  .cal-day__count {
+    font-size: 0.5rem;
+  }
+
+  .reset-setting__info {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
 }
+

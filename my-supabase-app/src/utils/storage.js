@@ -3,19 +3,74 @@
 const SETTINGS_KEY = 'aquapulse_settings';
 const STREAK_KEY = 'aquapulse_streak';
 
-function getLogKey(date = new Date()) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `aquapulse_log_${y}-${m}-${d}`;
+/**
+ * Bangladesh Timezone: Asia/Dhaka (UTC+6).
+ * Returns a Date object adjusted to Bangladesh local time.
+ */
+function getBDTime() {
+  const now = new Date();
+  // Get UTC time, then add +6 hours for Bangladesh
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  return new Date(utc + 6 * 3600000);
 }
 
-function getDateString(date = new Date()) {
+function formatDateString(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
+
+function getLogKey(dateStr) {
+  return `aquapulse_log_${dateStr}`;
+}
+
+/**
+ * Get the "effective tracking date" based on the user's reset hour.
+ * All times are calculated in Bangladesh timezone (UTC+6).
+ * E.g., if resetHour is 6 (6:00 AM BST), then 2:00 AM BST on April 11
+ * still counts as April 10's tracking day.
+ */
+export function getEffectiveDate(resetHour = 6) {
+  const bdNow = getBDTime();
+  const effective = new Date(bdNow);
+  if (bdNow.getHours() < resetHour) {
+    effective.setDate(effective.getDate() - 1);
+  }
+  return formatDateString(effective);
+}
+
+/**
+ * Get the next reset timestamp (for countdown display).
+ * Calculated in Bangladesh timezone (UTC+6).
+ */
+export function getNextResetTimestamp(resetHour = 6) {
+  const bdNow = getBDTime();
+  const next = new Date(bdNow);
+  next.setHours(resetHour, 0, 0, 0);
+  if (bdNow >= next) {
+    next.setDate(next.getDate() + 1);
+  }
+  // Convert back to real UTC timestamp for countdown math
+  const realNow = new Date();
+  const diffMs = next.getTime() - bdNow.getTime();
+  return realNow.getTime() + diffMs;
+}
+
+/**
+ * Get the current hour in Bangladesh timezone.
+ */
+export function getBDHour() {
+  return getBDTime().getHours();
+}
+
+/**
+ * Get current BD date string (YYYY-MM-DD).
+ */
+export function getBDDateString() {
+  return formatDateString(getBDTime());
+}
+
 
 // --- Settings ---
 
@@ -24,6 +79,7 @@ const DEFAULT_SETTINGS = {
   dailyGoal: 8,
   alarmActive: false,
   targetTimestamp: null,
+  resetHour: 6, // Default reset at 6:00 AM
 };
 
 export function loadSettings() {
@@ -44,9 +100,10 @@ export function saveSettings(settings) {
 
 // --- Water Log ---
 
-export function loadTodayLog() {
+export function loadTodayLog(resetHour = 6) {
+  const dateStr = getEffectiveDate(resetHour);
   try {
-    const raw = localStorage.getItem(getLogKey());
+    const raw = localStorage.getItem(getLogKey(dateStr));
     if (raw) return JSON.parse(raw);
   } catch {
     // ignore
@@ -54,8 +111,39 @@ export function loadTodayLog() {
   return { glasses: 0, lastDrank: null };
 }
 
-export function saveTodayLog(log) {
-  localStorage.setItem(getLogKey(), JSON.stringify(log));
+export function saveTodayLog(log, resetHour = 6) {
+  const dateStr = getEffectiveDate(resetHour);
+  localStorage.setItem(getLogKey(dateStr), JSON.stringify(log));
+}
+
+/**
+ * Load a specific day's log by date string (YYYY-MM-DD).
+ */
+export function loadDayLog(dateStr) {
+  try {
+    const raw = localStorage.getItem(getLogKey(dateStr));
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+/**
+ * Load all water logs for a given month.
+ * Returns an object: { "2026-04-01": { glasses: 3, ... }, ... }
+ */
+export function getMonthHistory(year, month) {
+  const history = {};
+  const daysInMonth = new Date(year, month, 0).getDate();
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const log = loadDayLog(dateStr);
+    if (log && log.glasses > 0) {
+      history[dateStr] = log;
+    }
+  }
+  return history;
 }
 
 // --- Streak ---
@@ -78,21 +166,21 @@ export function saveStreak(streak) {
  * Recalculate streak based on whether yesterday's goal was met.
  * Called on app load and when a glass is logged.
  */
-export function recalculateStreak(dailyGoal) {
+export function recalculateStreak(dailyGoal, resetHour = 6) {
   const streak = loadStreak();
-  const today = getDateString();
+  const today = getEffectiveDate(resetHour);
 
   // If lastDate is today, streak is current — no changes needed
   if (streak.lastDate === today) return streak;
 
   // Check if yesterday's goal was met
-  const yesterday = new Date();
+  const todayDate = new Date(today + 'T00:00:00');
+  const yesterday = new Date(todayDate);
   yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayKey = getLogKey(yesterday);
-  const yesterdayStr = getDateString(yesterday);
+  const yesterdayStr = formatDateString(yesterday);
 
   try {
-    const raw = localStorage.getItem(yesterdayKey);
+    const raw = localStorage.getItem(getLogKey(yesterdayStr));
     if (raw) {
       const log = JSON.parse(raw);
       if (log.glasses >= dailyGoal && streak.lastDate === yesterdayStr) {
@@ -117,9 +205,9 @@ export function recalculateStreak(dailyGoal) {
 /**
  * Update streak when daily goal is reached.
  */
-export function markGoalReached() {
+export function markGoalReached(resetHour = 6) {
   const streak = loadStreak();
-  const today = getDateString();
+  const today = getEffectiveDate(resetHour);
 
   if (streak.lastDate === today) return streak; // Already marked today
 
@@ -130,3 +218,4 @@ export function markGoalReached() {
   saveStreak(newStreak);
   return newStreak;
 }
+

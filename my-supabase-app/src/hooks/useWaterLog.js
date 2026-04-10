@@ -1,34 +1,50 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   loadTodayLog,
   saveTodayLog,
   loadStreak,
   recalculateStreak,
   markGoalReached,
+  getEffectiveDate,
 } from '../utils/storage';
 
 /**
  * Hook for tracking daily water intake.
+ * Supports custom reset hour (default 6 AM).
  */
-export function useWaterLog(dailyGoal) {
-  const [log, setLog] = useState(() => loadTodayLog());
+export function useWaterLog(dailyGoal, resetHour = 6) {
+  const [log, setLog] = useState(() => loadTodayLog(resetHour));
   const [streak, setStreak] = useState(() => loadStreak());
+  const effectiveDateRef = useRef(getEffectiveDate(resetHour));
 
   // Recalculate streak on load
   useEffect(() => {
-    const updated = recalculateStreak(dailyGoal);
+    const updated = recalculateStreak(dailyGoal, resetHour);
     setStreak(updated);
-  }, [dailyGoal]);
+  }, [dailyGoal, resetHour]);
 
-  // Check for midnight reset (every minute)
+  // Check for reset time crossover (every 10 seconds for accuracy)
   useEffect(() => {
     const check = setInterval(() => {
-      const fresh = loadTodayLog();
-      setLog(fresh);
-    }, 60_000);
+      const currentEffective = getEffectiveDate(resetHour);
+      if (currentEffective !== effectiveDateRef.current) {
+        // Day has changed — reload fresh log for the new day
+        effectiveDateRef.current = currentEffective;
+        const fresh = loadTodayLog(resetHour);
+        setLog(fresh);
+        const updatedStreak = recalculateStreak(dailyGoal, resetHour);
+        setStreak(updatedStreak);
+      }
+    }, 10_000);
 
     return () => clearInterval(check);
-  }, []);
+  }, [resetHour, dailyGoal]);
+
+  // Re-sync when resetHour changes
+  useEffect(() => {
+    effectiveDateRef.current = getEffectiveDate(resetHour);
+    setLog(loadTodayLog(resetHour));
+  }, [resetHour]);
 
   const incrementGlass = useCallback(() => {
     setLog((prev) => {
@@ -36,17 +52,17 @@ export function useWaterLog(dailyGoal) {
         glasses: prev.glasses + 1,
         lastDrank: new Date().toISOString(),
       };
-      saveTodayLog(updated);
+      saveTodayLog(updated, resetHour);
 
       // Check if goal just reached
       if (updated.glasses >= dailyGoal) {
-        const newStreak = markGoalReached();
+        const newStreak = markGoalReached(resetHour);
         setStreak(newStreak);
       }
 
       return updated;
     });
-  }, [dailyGoal]);
+  }, [dailyGoal, resetHour]);
 
   const decrementGlass = useCallback(() => {
     setLog((prev) => {
@@ -55,16 +71,16 @@ export function useWaterLog(dailyGoal) {
         ...prev,
         glasses: prev.glasses - 1,
       };
-      saveTodayLog(updated);
+      saveTodayLog(updated, resetHour);
       return updated;
     });
-  }, []);
+  }, [resetHour]);
 
   const resetGlasses = useCallback(() => {
     const updated = { glasses: 0, lastDrank: null };
-    saveTodayLog(updated);
+    saveTodayLog(updated, resetHour);
     setLog(updated);
-  }, []);
+  }, [resetHour]);
 
   const setGlasses = useCallback((count) => {
     setLog((prev) => {
@@ -72,10 +88,10 @@ export function useWaterLog(dailyGoal) {
         ...prev,
         glasses: Math.max(0, count),
       };
-      saveTodayLog(updated);
+      saveTodayLog(updated, resetHour);
       return updated;
     });
-  }, []);
+  }, [resetHour]);
 
   return {
     glasses: log.glasses,
@@ -89,3 +105,4 @@ export function useWaterLog(dailyGoal) {
     setGlasses,
   };
 }
+
